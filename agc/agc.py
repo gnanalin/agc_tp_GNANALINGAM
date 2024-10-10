@@ -110,11 +110,10 @@ def dereplication_fulllength(amplicon_file: Path, minseqlen: int, mincount: int)
     for sequence in sequences:
         dict_occ_sequences[sequence] = dict_occ_sequences.get(sequence, 0) + 1
     list_occ_sequences = sorted(dict_occ_sequences.items(), key=lambda x: x[1], reverse=True)
-    print(list_occ_sequences)
     for sequence, occurrence in list_occ_sequences:
         if occurrence >= mincount:
             yield [sequence, occurrence]
-    
+
 
 def get_identity(alignment_list: List[str]) -> float:
     """Compute the identity rate between two sequences
@@ -122,7 +121,13 @@ def get_identity(alignment_list: List[str]) -> float:
     :param alignment_list:  (list) A list of aligned sequences in the format ["SE-QUENCE1", "SE-QUENCE2"]
     :return: (float) The rate of identity between the two sequences.
     """
-    pass
+    sequence1 = alignment_list[0]
+    sequence2 = alignment_list[1]
+    nb_identity, seq_align_len = 0, len(sequence1)
+    for i in range(seq_align_len):
+        if sequence1[i] == sequence2[i]:
+            nb_identity += 1
+    return (nb_identity/seq_align_len)*100
 
 def abundance_greedy_clustering(amplicon_file: Path, minseqlen: int, mincount: int, chunk_size: int, kmer_size: int) -> List:
     """Compute an abundance greedy clustering regarding sequence count and identity.
@@ -135,8 +140,19 @@ def abundance_greedy_clustering(amplicon_file: Path, minseqlen: int, mincount: i
     :param kmer_size: (int) A fournir mais non utilise cette annee
     :return: (list) A list of all the [OTU (str), count (int)] .
     """
-    pass
-
+    seq_with_occurrence = list(dereplication_fulllength(amplicon_file, minseqlen, mincount))
+    seq_OTU = [[seq_with_occurrence[0][0], seq_with_occurrence[0][1]]]
+    for i in range(1, len(seq_with_occurrence)):
+        count_identity_seq = 0
+        for sequences in seq_OTU:
+            seq1, seq2, count = seq_with_occurrence[i][0], sequences[0], seq_with_occurrence[i][1]
+            seq1_align, seq2_align = nw.global_align(seq1, seq2, gap_open=-1, gap_extend=-1, matrix=str(Path(__file__).parent / "MATCH"))
+            print(seq1_align, seq2_align)
+            if get_identity([seq1_align, seq2_align]) >= 97:
+                count_identity_seq += 1
+        if count_identity_seq == 0:
+            seq_OTU.append([seq1, count])
+    return seq_OTU
 
 def write_OTU(OTU_list: List, output_file: Path) -> None:
     """Write the OTU sequence in fasta format.
@@ -144,7 +160,13 @@ def write_OTU(OTU_list: List, output_file: Path) -> None:
     :param OTU_list: (list) A list of OTU sequences
     :param output_file: (Path) Path to the output file
     """
-    pass
+    with open(output_file, "w") as file_write:
+        counter = 1
+        for element in OTU_list:
+            file_write.write(f">OTU_{counter} occurrence:{element[1]}\n")
+            for i in range(0, len(element[0]), 80):
+                file_write.write(f"{element[0][i:i+80]}\n")
+            counter += 1
 
 
 #==============================================================
