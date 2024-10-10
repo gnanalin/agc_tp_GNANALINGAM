@@ -15,12 +15,12 @@
 
 import argparse
 import sys
-import os
+#import os
 import gzip
-import statistics
-import textwrap
+#import statistics
+#import textwrap
 from pathlib import Path
-from collections import Counter
+#from collections import Counter
 from typing import Iterator, Dict, List
 # https://github.com/briney/nwalign3
 # ftp://ftp.ncbi.nih.gov/blast/matrices/
@@ -141,20 +141,20 @@ def abundance_greedy_clustering(amplicon_file: Path, minseqlen: int, mincount: i
     :return: (list) A list of all the [OTU (str), count (int)] .
     """
     seq_with_occurrence = list(dereplication_fulllength(amplicon_file, minseqlen, mincount))
-    seq_OTU = [[seq_with_occurrence[0][0], seq_with_occurrence[0][1]]]
+    seq_otu = [[seq_with_occurrence[0][0], seq_with_occurrence[0][1]]]
     for i in range(1, len(seq_with_occurrence)):
-        count_identity_seq = 0
-        for sequences in seq_OTU:
+        otu_append = True
+        for sequences in seq_otu:
             seq1, seq2, count = seq_with_occurrence[i][0], sequences[0], seq_with_occurrence[i][1]
             seq1_align, seq2_align = nw.global_align(seq1, seq2, gap_open=-1, gap_extend=-1, matrix=str(Path(__file__).parent / "MATCH"))
-            print(seq1_align, seq2_align)
             if get_identity([seq1_align, seq2_align]) >= 97:
-                count_identity_seq += 1
-        if count_identity_seq == 0:
-            seq_OTU.append([seq1, count])
-    return seq_OTU
+                otu_append = False
+                break
+        if otu_append:
+            seq_otu.append([seq1, count])
+    return seq_otu
 
-def write_OTU(OTU_list: List, output_file: Path) -> None:
+def write_OTU(otu_list: List, output_file: Path) -> None:
     """Write the OTU sequence in fasta format.
 
     :param OTU_list: (list) A list of OTU sequences
@@ -162,7 +162,7 @@ def write_OTU(OTU_list: List, output_file: Path) -> None:
     """
     with open(output_file, "w") as file_write:
         counter = 1
-        for element in OTU_list:
+        for element in otu_list:
             file_write.write(f">OTU_{counter} occurrence:{element[1]}\n")
             for i in range(0, len(element[0]), 80):
                 file_write.write(f"{element[0][i:i+80]}\n")
@@ -179,7 +179,8 @@ def main(): # pragma: no cover
     # Get arguments
     args = get_arguments()
     # Votre programme ici
-
+    seq_otu = abundance_greedy_clustering(args.amplicon_file, args.minseqlen, args.mincount, 1, 1)
+    write_OTU(seq_otu, args.output_file)
 
 
 if __name__ == '__main__':
